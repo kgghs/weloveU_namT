@@ -334,7 +334,7 @@
         // Firebase 라이브러리 import
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Firebase 구성 정보 (자동으로 제공됨)
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "DEMO", authDomain: "DEMO", projectId: "DEMO" };
@@ -367,15 +367,19 @@
         const noteColors = ['#fff8e1', '#f0f4c3', '#e1f5fe', '#fce4ec', '#e8eaf6'];
 
         // Firestore 컬렉션 참조
-        const messagesCol = collection(db, `artifacts/${appId}/public/data/messages`);
+        const messagesColRef = collection(db, `artifacts/${appId}/public/data/messages`);
 
         // 모든 메시지를 화면에 렌더링하는 함수
         function renderMessages(messages) {
             messageBoard.innerHTML = ''; // 기존 메시지 지우기
-            messages.forEach((msg, index) => {
-                const noteElement = createNote(msg.id, msg.from, msg.content, index * 0.1);
-                messageBoard.appendChild(noteElement);
-            });
+            if (messages.length === 0) {
+                messageBoard.innerHTML = "<p style='font-size: 1.5rem; color: #888;'>아직 남겨진 메시지가 없어요.<br>첫 번째 마음을 전해주세요!</p>";
+            } else {
+                messages.forEach((msg, index) => {
+                    const noteElement = createNote(msg.id, msg.from, msg.content, index * 0.1);
+                    messageBoard.appendChild(noteElement);
+                });
+            }
         }
 
         // 관리자 컨트롤 (삭제 버튼) 추가 함수
@@ -428,7 +432,7 @@
 
             if (from && content) {
                 try {
-                    await addDoc(messagesCol, {
+                    await addDoc(messagesColRef, {
                         from: from,
                         content: content,
                         createdAt: serverTimestamp() // 서버 시간 기준으로 저장
@@ -439,6 +443,7 @@
                     messageModal.classList.remove('visible');
                 } catch (error) {
                     console.error("Error adding document: ", error);
+                    alert("메시지 저장에 실패했습니다. 다시 시도해주세요.");
                 }
             }
         });
@@ -451,6 +456,7 @@
                     await deleteDoc(doc(db, `artifacts/${appId}/public/data/messages`, noteId));
                 } catch (error) {
                     console.error("Error removing document: ", error);
+                    alert("메시지 삭제에 실패했습니다.");
                 }
             }
             confirmDeleteModal.classList.remove('visible');
@@ -491,10 +497,10 @@
             noteToDelete = null;
         });
 
-        // --- Firebase 인증 및 데이터 실시간 수신 ---
+        // --- Firebase 인증 및 데이터 실시간 수신 (개선된 버전) ---
         async function initialize() {
+            messageBoard.innerHTML = "<p style='font-size: 1.5rem; color: #888;'>데이터를 불러오는 중입니다...</p>";
             try {
-                // 제공된 토큰으로 로그인하거나 익명으로 로그인
                 const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
                 if (token) {
                     await signInWithCustomToken(auth, token);
@@ -502,20 +508,22 @@
                     await signInAnonymously(auth);
                 }
 
-                // 메시지 실시간 수신 시작
-                onSnapshot(messagesCol, (querySnapshot) => {
+                const q = query(messagesColRef, orderBy("createdAt", "asc"));
+
+                onSnapshot(q, (querySnapshot) => {
                     const messages = [];
                     querySnapshot.forEach((doc) => {
                         messages.push({ id: doc.id, ...doc.data() });
                     });
-                    // createdAt 필드를 기준으로 정렬 (오래된 메시지가 먼저)
-                    messages.sort((a, b) => a.createdAt?.seconds - b.createdAt?.seconds);
                     renderMessages(messages);
+                }, (error) => {
+                    console.error("실시간 데이터 수신 오류: ", error);
+                    messageBoard.innerHTML = "<p style='font-size: 1.5rem; color: #e57373;'>메시지를 불러오는 데 실패했습니다. 네트워크 연결을 확인하거나 페이지를 새로고침 해주세요.</p>";
                 });
 
             } catch (error) {
-                console.error("Initialization failed:", error);
-                messageBoard.innerHTML = "<p>데이터를 불러오는 데 실패했습니다. 페이지를 새로고침 해주세요.</p>";
+                console.error("초기화 실패:", error);
+                messageBoard.innerHTML = "<p style='font-size: 1.5rem; color: #e57373;'>데이터베이스 연결에 실패했습니다. 페이지를 새로고침 해주세요.</p>";
             }
         }
 
