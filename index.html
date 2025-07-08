@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>남상혁 선생님 사랑합니다</title>
+    <style>
+        /* Google Fonts에서 손글씨 폰트 가져오기 */
+        @import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap');
+
+        /* 나풀거리며 떨어지는 애니메이션 */
+        @keyframes fall-in {
+            0% {
+                opacity: 0;
+                transform: translateY(-150px) rotateZ(20deg);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) rotateZ(var(--final-rotation));
+            }
+        }
+
+        /* 제자리에 놓인 후 미세하게 흔들리는 애니메이션 */
+        @keyframes gentle-float {
+            0%, 100% {
+                transform: translateY(0) rotateZ(var(--final-rotation));
+            }
+            50% {
+                transform: translateY(-3px) rotateZ(var(--final-rotation));
+            }
+        }
+
+        body {
+            font-family: 'Gaegu', cursive;
+            background-color: #fdfaf4; /* 따뜻한 아이보리 배경색 */
+            /* 은은한 꽃무늬 배경 추가 */
+            background-image: url('https://www.toptal.com/designers/subtlepatterns/uploads/flowers.png');
+            color: #333;
+            margin: 0;
+            padding: 2rem 1rem;
+            overflow-x: hidden;
+        }
+
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .main-title h1 {
+            font-size: 2.5rem;
+            margin: 0.5rem 0;
+            color: #4a4a4a;
+            line-height: 1.4;
+        }
+        
+        .main-title .first-title {
+            font-size: 3.2rem; 
+        }
+
+        .teacher-photo {
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 1.5rem 0;
+            border: 8px solid #ffffff;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .action-button {
+            font-family: 'Gaegu', cursive;
+            font-size: 1.5rem;
+            font-weight: 700;
+            padding: 12px 30px;
+            border-radius: 30px;
+            border: 2px solid #d1bfa7;
+            background-color: #fff;
+            color: #5d4037;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .action-button:hover {
+            background-color: #f7f1e9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .message-board {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 1.5rem;
+            padding: 3rem 0;
+            min-height: 300px;
+        }
+
+        .note {
+            width: 220px;
+            height: 220px;
+            padding: 1.5rem;
+            box-sizing: border-box;
+            box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            word-wrap: break-word;
+            position: relative; /* 삭제 버튼 위치 기준 */
+            animation: fall-in 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards,
+                       gentle-float 6s ease-in-out infinite;
+            animation-delay: var(--animation-delay, 0s);
+        }
+
+        .note:hover {
+            transform: scale(1.05) rotateZ(var(--final-rotation)) !important;
+            z-index: 10;
+            box-shadow: 10px 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .note-content {
+            font-size: 1.3rem;
+            line-height: 1.6;
+            flex-grow: 1;
+            overflow: auto;
+            text-align: left;
+        }
+
+        .note-from {
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-align: right;
+            margin-top: 1rem;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background-color: #fff;
+            padding: 2rem;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            transform: scale(0.9);
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        
+        .modal-overlay.visible .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-content h2 {
+            font-size: 2rem;
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+            color: #5d4037;
+        }
+
+        .modal-content input,
+        .modal-content textarea {
+            font-family: 'Gaegu', cursive;
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+            box-sizing: border-box;
+        }
+
+        .modal-content textarea {
+            height: 150px;
+            resize: vertical;
+        }
+        
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        footer {
+            margin-top: 3rem;
+            color: #aaa;
+            font-size: 1rem;
+        }
+        
+        #admin-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            padding: 8px 15px;
+            font-family: 'Gaegu', cursive;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #5d4037;
+            cursor: pointer;
+            z-index: 101;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: all 0.2s ease;
+        }
+        #admin-btn:hover {
+            background-color: #fff;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            width: 28px;
+            height: 28px;
+            background-color: #e57373;
+            color: white;
+            border: 2px solid white;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            line-height: 1;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all 0.2s ease;
+            visibility: hidden;
+        }
+
+        .note.admin-mode .delete-btn {
+            opacity: 1;
+            transform: scale(1);
+            visibility: visible;
+        }
+
+    </style>
+</head>
+<body>
+    <button id="admin-btn">관리자 모드</button>
+
+    <div class="main-container">
+        <header class="main-title">
+            <h1 class="first-title">남상혁 선생님 사랑합니다</h1>
+            <h1>주신 사랑 오래도록 기억하겠습니다.</h1>
+        </header>
+
+        <img src="남상혁 부장선생님.jpg" alt="남상혁 선생님 사진" class="teacher-photo">
+
+        <button id="open-modal-btn" class="action-button">💌 마음 전하기</button>
+
+        <div class="message-board" id="message-board">
+            <!-- JavaScript로 메시지가 여기에 추가됩니다 -->
+        </div>
+        
+        <footer>
+            <p>※ 이 페이지는 임시로 제작되어, 새로고침하면 메시지가 사라집니다.</p>
+        </footer>
+    </div>
+
+    <!-- 메시지 작성 모달 -->
+    <div id="message-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>선생님께 마음 전하기</h2>
+            <form id="message-form">
+                <input type="text" id="from-input" placeholder="보내는 사람 (예: 3학년 2반 OOO)" maxlength="20" required>
+                <textarea id="message-input" placeholder="선생님께 따뜻한 마음을 담아 편지를 써주세요." maxlength="500" required></textarea>
+                <div class="modal-actions">
+                    <button type="button" id="close-modal-btn" class="action-button" style="background-color: #eee; border-color: #ccc;">닫기</button>
+                    <button type="submit" class="action-button">마음 남기기</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 삭제 확인 모달 -->
+    <div id="confirm-delete-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>메시지 삭제</h2>
+            <p>정말로 이 메시지를 삭제하시겠습니까?<br>이 작업은 되돌릴 수 없습니다.</p>
+            <div class="modal-actions">
+                <button type="button" id="cancel-delete-btn" class="action-button" style="background-color: #eee; border-color: #ccc;">취소</button>
+                <button type="button" id="confirm-delete-btn" class="action-button" style="background-color: #e57373; border-color: #d32f2f; color: white;">삭제</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 관리자 비밀번호 입력 모달 -->
+    <div id="admin-password-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>관리자 모드</h2>
+            <form id="admin-password-form">
+                <input type="password" id="admin-password-input" placeholder="비밀번호를 입력하세요" required>
+                <div class="modal-actions">
+                    <button type="button" id="cancel-admin-login-btn" class="action-button" style="background-color: #eee; border-color: #ccc;">취소</button>
+                    <button type="submit" class="action-button">확인</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const messageBoard = document.getElementById('message-board');
+            const openModalBtn = document.getElementById('open-modal-btn');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+            const messageModal = document.getElementById('message-modal');
+            const messageForm = document.getElementById('message-form');
+            const fromInput = document.getElementById('from-input');
+            const messageInput = document.getElementById('message-input');
+
+            // 관리자 모드 관련 요소
+            const adminBtn = document.getElementById('admin-btn');
+            const adminPasswordModal = document.getElementById('admin-password-modal');
+            const adminPasswordForm = document.getElementById('admin-password-form');
+            const adminPasswordInput = document.getElementById('admin-password-input');
+            const cancelAdminLoginBtn = document.getElementById('cancel-admin-login-btn');
+            const confirmDeleteModal = document.getElementById('confirm-delete-modal');
+            const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+            const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+            let adminMode = false;
+            let noteToDelete = null;
+
+            const noteColors = ['#fff8e1', '#f0f4c3', '#e1f5fe', '#fce4ec', '#e8eaf6'];
+            
+            const sampleMessages = [
+                { from: '제자 이지은 드림', content: '철없던 저를 바른길로 이끌어주셔서 감사합니다. 선생님은 제 인생의 등대셨어요. 잊지 않겠습니다.' }
+            ];
+
+            function addAdminControls(note) {
+                if (note.querySelector('.delete-btn')) return;
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.innerHTML = '&times;';
+                deleteBtn.onclick = function(e) {
+                    e.stopPropagation();
+                    noteToDelete = note;
+                    confirmDeleteModal.classList.add('visible');
+                };
+                note.appendChild(deleteBtn);
+            }
+
+            function createNote(from, content, delay = 0) {
+                const note = document.createElement('div');
+                note.className = 'note';
+                
+                const randomColor = noteColors[Math.floor(Math.random() * noteColors.length)];
+                const randomRotation = Math.random() * 20 - 10;
+                
+                note.style.backgroundColor = randomColor;
+                note.style.setProperty('--final-rotation', `${randomRotation}deg`);
+                note.style.setProperty('--animation-delay', `${delay}s`);
+
+                note.innerHTML = `
+                    <div class="note-content">${content.replace(/\n/g, '<br>')}</div>
+                    <div class="note-from">- ${from}</div>
+                `;
+                
+                addAdminControls(note);
+
+                if (adminMode) {
+                    note.classList.add('admin-mode');
+                }
+                
+                return note;
+            }
+
+            sampleMessages.forEach((msg, index) => {
+                const noteElement = createNote(msg.from, msg.content, index * 0.2);
+                messageBoard.appendChild(noteElement);
+            });
+
+            openModalBtn.addEventListener('click', () => {
+                messageModal.classList.add('visible');
+            });
+
+            closeModalBtn.addEventListener('click', () => {
+                messageModal.classList.remove('visible');
+            });
+
+            messageModal.addEventListener('click', (e) => {
+                if (e.target === messageModal) {
+                    messageModal.classList.remove('visible');
+                }
+            });
+
+            messageForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const from = fromInput.value.trim();
+                const content = messageInput.value.trim();
+
+                if (from && content) {
+                    const newNote = createNote(from, content);
+                    messageBoard.appendChild(newNote);
+                    
+                    fromInput.value = '';
+                    messageInput.value = '';
+                    messageModal.classList.remove('visible');
+                }
+            });
+
+            // 관리자 모드 로직 수정
+            adminBtn.addEventListener('click', () => {
+                if (adminMode) {
+                    adminMode = false;
+                    adminBtn.textContent = '관리자 모드';
+                    document.querySelectorAll('.note').forEach(note => note.classList.remove('admin-mode'));
+                } else {
+                    adminPasswordInput.value = '';
+                    adminPasswordInput.placeholder = '비밀번호를 입력하세요';
+                    adminPasswordModal.classList.add('visible');
+                    adminPasswordInput.focus();
+                }
+            });
+            
+            cancelAdminLoginBtn.addEventListener('click', () => {
+                adminPasswordModal.classList.remove('visible');
+            });
+
+            adminPasswordForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (adminPasswordInput.value === '2025') {
+                    adminMode = true;
+                    adminBtn.textContent = '관리자 모드 종료';
+                    document.querySelectorAll('.note').forEach(note => note.classList.add('admin-mode'));
+                    adminPasswordModal.classList.remove('visible');
+                } else {
+                    adminPasswordInput.value = '';
+                    adminPasswordInput.placeholder = '비밀번호가 틀렸습니다.';
+                }
+            });
+
+            // 삭제 확인 모달 로직
+            cancelDeleteBtn.addEventListener('click', () => {
+                confirmDeleteModal.classList.remove('visible');
+                noteToDelete = null;
+            });
+
+            confirmDeleteBtn.addEventListener('click', () => {
+                if (noteToDelete) {
+                    noteToDelete.remove();
+                }
+                confirmDeleteModal.classList.remove('visible');
+                noteToDelete = null;
+            });
+        });
+    </script>
+
+</body>
+</html>
