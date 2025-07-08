@@ -329,193 +329,198 @@
         </div>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const messageBoard = document.getElementById('message-board');
-            const openModalBtn = document.getElementById('open-modal-btn');
-            const closeModalBtn = document.getElementById('close-modal-btn');
-            const messageModal = document.getElementById('message-modal');
-            const messageForm = document.getElementById('message-form');
-            const fromInput = document.getElementById('from-input');
-            const messageInput = document.getElementById('message-input');
+    <!-- Firebase SDK 추가 -->
+    <script type="module">
+        // Firebase 라이브러리 import
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-            // 관리자 모드 관련 요소
-            const adminBtn = document.getElementById('admin-btn');
-            const adminPasswordModal = document.getElementById('admin-password-modal');
-            const adminPasswordForm = document.getElementById('admin-password-form');
-            const adminPasswordInput = document.getElementById('admin-password-input');
-            const cancelAdminLoginBtn = document.getElementById('cancel-admin-login-btn');
-            const confirmDeleteModal = document.getElementById('confirm-delete-modal');
-            const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
-            const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
-            let adminMode = false;
-            let noteToDelete = null;
+        // Firebase 구성 정보 (자동으로 제공됨)
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "DEMO", authDomain: "DEMO", projectId: "DEMO" };
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-rolling-paper';
 
-            const noteColors = ['#fff8e1', '#f0f4c3', '#e1f5fe', '#fce4ec', '#e8eaf6'];
-            let messages = [];
+        // Firebase 앱 초기화
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
 
-            // 메시지 저장 함수
-            function saveMessages() {
-                localStorage.setItem('rollingPaperMessages', JSON.stringify(messages));
-            }
+        // DOM 요소 가져오기
+        const messageBoard = document.getElementById('message-board');
+        const openModalBtn = document.getElementById('open-modal-btn');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const messageModal = document.getElementById('message-modal');
+        const messageForm = document.getElementById('message-form');
+        const fromInput = document.getElementById('from-input');
+        const messageInput = document.getElementById('message-input');
+        const adminBtn = document.getElementById('admin-btn');
+        const adminPasswordModal = document.getElementById('admin-password-modal');
+        const adminPasswordForm = document.getElementById('admin-password-form');
+        const adminPasswordInput = document.getElementById('admin-password-input');
+        const cancelAdminLoginBtn = document.getElementById('cancel-admin-login-btn');
+        const confirmDeleteModal = document.getElementById('confirm-delete-modal');
+        const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+        const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+        
+        let adminMode = false;
+        let noteToDelete = null;
+        const noteColors = ['#fff8e1', '#f0f4c3', '#e1f5fe', '#fce4ec', '#e8eaf6'];
 
-            // 메시지 불러오기 함수
-            function loadMessages() {
-                const storedMessages = localStorage.getItem('rollingPaperMessages');
-                if (storedMessages && storedMessages.length > 2) { // 저장된 내용이 있는지 확인
-                    messages = JSON.parse(storedMessages);
-                } else {
-                    // 저장된 메시지가 없으면 초기 샘플 메시지 사용
-                    messages = [
-                        { id: Date.now(), from: '제자 이지은 드림', content: '철없던 저를 바른길로 이끌어주셔서 감사합니다. 선생님은 제 인생의 등대셨어요. 잊지 않겠습니다.' }
-                    ];
-                }
+        // Firestore 컬렉션 참조
+        const messagesCol = collection(db, `artifacts/${appId}/public/data/messages`);
+
+        // 모든 메시지를 화면에 렌더링하는 함수
+        function renderMessages(messages) {
+            messageBoard.innerHTML = ''; // 기존 메시지 지우기
+            messages.forEach((msg, index) => {
+                const noteElement = createNote(msg.id, msg.from, msg.content, index * 0.1);
+                messageBoard.appendChild(noteElement);
+            });
+        }
+
+        // 관리자 컨트롤 (삭제 버튼) 추가 함수
+        function addAdminControls(note) {
+            if (note.querySelector('.delete-btn')) return;
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.innerHTML = '&times;';
+            deleteBtn.onclick = function(e) {
+                e.stopPropagation();
+                noteToDelete = note;
+                confirmDeleteModal.classList.add('visible');
+            };
+            note.appendChild(deleteBtn);
+        }
+
+        // 메시지 노트 DOM 요소를 만드는 함수
+        function createNote(id, from, content, delay = 0) {
+            const note = document.createElement('div');
+            note.className = 'note';
+            note.dataset.id = id; // Firestore 문서 ID 저장
+            
+            const randomColor = noteColors[Math.floor(Math.random() * noteColors.length)];
+            const randomRotation = Math.random() * 20 - 10;
+            
+            note.style.backgroundColor = randomColor;
+            note.style.setProperty('--final-rotation', `${randomRotation}deg`);
+            note.style.setProperty('--animation-delay', `${delay}s`);
+
+            note.innerHTML = `
+                <div class="note-content">${content.replace(/\n/g, '<br>')}</div>
+                <div class="note-from">- ${from}</div>
+            `;
+            
+            addAdminControls(note);
+
+            if (adminMode) {
+                note.classList.add('admin-mode');
             }
             
-            // 모든 메시지를 화면에 렌더링하는 함수
-            function renderMessages() {
-                messageBoard.innerHTML = ''; // 기존 메시지 지우기
-                messages.forEach((msg, index) => {
-                    const noteElement = createNote(msg.id, msg.from, msg.content, index * 0.1);
-                    messageBoard.appendChild(noteElement);
-                });
-            }
+            return note;
+        }
 
-            // 관리자 컨트롤 (삭제 버튼) 추가 함수
-            function addAdminControls(note) {
-                if (note.querySelector('.delete-btn')) return;
+        // 새 메시지 제출 처리
+        messageForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const from = fromInput.value.trim();
+            const content = messageInput.value.trim();
 
-                const deleteBtn = document.createElement('button');
-                deleteBtn.className = 'delete-btn';
-                deleteBtn.innerHTML = '&times;';
-                deleteBtn.onclick = function(e) {
-                    e.stopPropagation();
-                    noteToDelete = note;
-                    confirmDeleteModal.classList.add('visible');
-                };
-                note.appendChild(deleteBtn);
-            }
-
-            // 메시지 노트 DOM 요소를 만드는 함수
-            function createNote(id, from, content, delay = 0) {
-                const note = document.createElement('div');
-                note.className = 'note';
-                note.dataset.id = id; // 메시지 구분을 위한 ID 추가
-                
-                const randomColor = noteColors[Math.floor(Math.random() * noteColors.length)];
-                const randomRotation = Math.random() * 20 - 10;
-                
-                note.style.backgroundColor = randomColor;
-                note.style.setProperty('--final-rotation', `${randomRotation}deg`);
-                note.style.setProperty('--animation-delay', `${delay}s`);
-
-                note.innerHTML = `
-                    <div class="note-content">${content.replace(/\n/g, '<br>')}</div>
-                    <div class="note-from">- ${from}</div>
-                `;
-                
-                addAdminControls(note);
-
-                if (adminMode) {
-                    note.classList.add('admin-mode');
-                }
-                
-                return note;
-            }
-
-            // 메시지 작성 모달 열기
-            openModalBtn.addEventListener('click', () => {
-                messageModal.classList.add('visible');
-            });
-
-            // 메시지 작성 모달 닫기
-            closeModalBtn.addEventListener('click', () => {
-                messageModal.classList.remove('visible');
-            });
-
-            messageModal.addEventListener('click', (e) => {
-                if (e.target === messageModal) {
-                    messageModal.classList.remove('visible');
-                }
-            });
-
-            // 새 메시지 제출 처리
-            messageForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                const from = fromInput.value.trim();
-                const content = messageInput.value.trim();
-
-                if (from && content) {
-                    const newMessage = {
-                        id: Date.now(),
+            if (from && content) {
+                try {
+                    await addDoc(messagesCol, {
                         from: from,
-                        content: content
-                    };
-                    messages.push(newMessage);
-                    saveMessages();
-                    renderMessages();
+                        content: content,
+                        createdAt: serverTimestamp() // 서버 시간 기준으로 저장
+                    });
                     
                     fromInput.value = '';
                     messageInput.value = '';
                     messageModal.classList.remove('visible');
+                } catch (error) {
+                    console.error("Error adding document: ", error);
                 }
-            });
-
-            // 관리자 모드 버튼 클릭 처리
-            adminBtn.addEventListener('click', () => {
-                if (adminMode) {
-                    adminMode = false;
-                    adminBtn.textContent = '관리자 모드';
-                    document.querySelectorAll('.note').forEach(note => note.classList.remove('admin-mode'));
-                } else {
-                    adminPasswordInput.value = '';
-                    adminPasswordInput.placeholder = '비밀번호를 입력하세요';
-                    adminPasswordModal.classList.add('visible');
-                    adminPasswordInput.focus();
-                }
-            });
-            
-            // 관리자 비밀번호 모달 닫기
-            cancelAdminLoginBtn.addEventListener('click', () => {
-                adminPasswordModal.classList.remove('visible');
-            });
-
-            // 관리자 비밀번호 확인
-            adminPasswordForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                if (adminPasswordInput.value === '2025') {
-                    adminMode = true;
-                    adminBtn.textContent = '관리자 모드 종료';
-                    document.querySelectorAll('.note').forEach(note => note.classList.add('admin-mode'));
-                    adminPasswordModal.classList.remove('visible');
-                } else {
-                    adminPasswordInput.value = '';
-                    adminPasswordInput.placeholder = '비밀번호가 틀렸습니다.';
-                }
-            });
-
-            // 삭제 확인 모달 닫기
-            cancelDeleteBtn.addEventListener('click', () => {
-                confirmDeleteModal.classList.remove('visible');
-                noteToDelete = null;
-            });
-
-            // 최종 삭제 처리
-            confirmDeleteBtn.addEventListener('click', () => {
-                if (noteToDelete) {
-                    const noteId = parseInt(noteToDelete.dataset.id);
-                    messages = messages.filter(msg => msg.id !== noteId);
-                    saveMessages();
-                    renderMessages();
-                }
-                confirmDeleteModal.classList.remove('visible');
-                noteToDelete = null;
-            });
-
-            // 페이지 로드 시 실행
-            loadMessages();
-            renderMessages();
+            }
         });
+
+        // 최종 삭제 처리
+        confirmDeleteBtn.addEventListener('click', async () => {
+            if (noteToDelete) {
+                const noteId = noteToDelete.dataset.id;
+                try {
+                    await deleteDoc(doc(db, `artifacts/${appId}/public/data/messages`, noteId));
+                } catch (error) {
+                    console.error("Error removing document: ", error);
+                }
+            }
+            confirmDeleteModal.classList.remove('visible');
+            noteToDelete = null;
+        });
+
+        // --- 모달 및 관리자 모드 관련 로직 (이전과 동일) ---
+        openModalBtn.addEventListener('click', () => messageModal.classList.add('visible'));
+        closeModalBtn.addEventListener('click', () => messageModal.classList.remove('visible'));
+        messageModal.addEventListener('click', (e) => { if (e.target === messageModal) messageModal.classList.remove('visible'); });
+        adminBtn.addEventListener('click', () => {
+            if (adminMode) {
+                adminMode = false;
+                adminBtn.textContent = '관리자 모드';
+                document.querySelectorAll('.note').forEach(note => note.classList.remove('admin-mode'));
+            } else {
+                adminPasswordInput.value = '';
+                adminPasswordInput.placeholder = '비밀번호를 입력하세요';
+                adminPasswordModal.classList.add('visible');
+                adminPasswordInput.focus();
+            }
+        });
+        cancelAdminLoginBtn.addEventListener('click', () => adminPasswordModal.classList.remove('visible'));
+        adminPasswordForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (adminPasswordInput.value === '2025') {
+                adminMode = true;
+                adminBtn.textContent = '관리자 모드 종료';
+                document.querySelectorAll('.note').forEach(note => note.classList.add('admin-mode'));
+                adminPasswordModal.classList.remove('visible');
+            } else {
+                adminPasswordInput.value = '';
+                adminPasswordInput.placeholder = '비밀번호가 틀렸습니다.';
+            }
+        });
+        cancelDeleteBtn.addEventListener('click', () => {
+            confirmDeleteModal.classList.remove('visible');
+            noteToDelete = null;
+        });
+
+        // --- Firebase 인증 및 데이터 실시간 수신 ---
+        async function initialize() {
+            try {
+                // 제공된 토큰으로 로그인하거나 익명으로 로그인
+                const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                if (token) {
+                    await signInWithCustomToken(auth, token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                // 메시지 실시간 수신 시작
+                onSnapshot(messagesCol, (querySnapshot) => {
+                    const messages = [];
+                    querySnapshot.forEach((doc) => {
+                        messages.push({ id: doc.id, ...doc.data() });
+                    });
+                    // createdAt 필드를 기준으로 정렬 (오래된 메시지가 먼저)
+                    messages.sort((a, b) => a.createdAt?.seconds - b.createdAt?.seconds);
+                    renderMessages(messages);
+                });
+
+            } catch (error) {
+                console.error("Initialization failed:", error);
+                messageBoard.innerHTML = "<p>데이터를 불러오는 데 실패했습니다. 페이지를 새로고침 해주세요.</p>";
+            }
+        }
+
+        initialize();
+
     </script>
 
 </body>
